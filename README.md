@@ -105,10 +105,12 @@ Para alterar, clique em ```Runtime > Change runtime type``` e selecione ```T4 GP
 
 ## Abstract
 
-The detection of landing strips in the Amazon region is a critical challenge for territorial monitoring due to dense vegetation, persistent cloud cover, and the small spatial footprint of these structures. Traditional RGB monitoring often fails to distinguish runways from similar features like roads or riverbanks. This study proposes a methodology for the automated segmentation of landing strips by integrating multiespectral data from the Sentinel-2 satellite with a state-of-the-art U-Net MiT-B2 (SegFormer) architecture. A custom dataset was developed using the Google Earth Engine (GEE), consisting of 153 manually annotated patches (51 positive and 102 negative samples) across the Brazilian Amazon. The input pipeline incorporates 8 spectral bands: RGB for visual context, Near-Infrared (NIR) to exploit vegetation contrast, and Short-Wave Infrared (SWIR 1 & 2) to leverage differences in moisture and soil/asphalt reflectance. Additionally, NDVI and NDBI indices were calculated to enhance the separation between biomass and compacted soil. The model was trained using a hybrid loss approach centered on Binary Cross-Entropy (BCE) with a Sigmoid activation and validated using the Dice Loss coefficient.
+The detection of runways in the Amazon region is a critical challenge for remote sensing due to dense vegetation, persistent cloud cover, and the small spatial footprint of these structures. Traditional RGB monitoring often fails to distinguish runways from similar features like roads or riverbanks. This study proposes a methodology for the automated segmentation of landing strips by integrating multiespectral data from the Sentinel-2 satellite with a state-of-the-art U-Net MiT-B2 (SegFormer) architecture. A custom dataset was developed using the Google Earth Engine (GEE), consisting of 153 manually annotated patches (51 positive and 102 negative samples) across the Brazilian Amazon. The input pipeline incorporates 8 spectral bands: RGB for visual context, Near-Infrared (NIR) to exploit vegetation contrast, and Short-Wave Infrared (SWIR 1 & 2) to leverage differences in moisture and soil/asphalt reflectance. Additionally, NDVI and NDBI indices were calculated to enhance the separation between biomass and compacted soil. The model was trained using a hybrid loss approach centered on Binary Cross-Entropy (BCE) with a Sigmoid activation and validated using the Dice Loss coefficient.
 
 \
-Despite the limited dataset size, the MiT-B2 encoder demonstrated high sensitivity in remote forest areas, effectively distinguishing runways from complex negatives like roads and clearings. Challenges were identified in peri-urban areas where spectral signatures overlap with urban infrastructure. Data export issues regarding SWIR band upsampling were resolved by optimizing GEE reprojection workflows, ensuring data integrity for inference. The results confirm that the integration of SWIR bands and Transformer-based self-attention mechanisms significantly improves the detection of small-scale infrastructure in rainforest environments. Future work should focus on dataset expansion to 1,500 patches to fully leverage the Vision Transformer’s potential and the implementation of real-time interactive monitoring tools.
+Despite the limited dataset size, the MiT-B2 encoder demonstrated high sensitivity in remote forest areas, effectively distinguishing runways from complex negatives like roads and clearings. Challenges were identified in peri-urban areas where spectral signatures overlap with urban infrastructure. Data export issues regarding SWIR band upsampling were resolved by optimizing GEE reprojection workflows, ensuring data integrity for inference. Results indicate that the model performs robustly in remote regions where runways are isolated from urban environments, showing a high resistance to false positives. Although the SURFACE metadata was initially collected to classify paving types (asphalt, soil, or gravel), this multi-class approach was deferred in favor of a binary segmentation task to ensure detection stability. Such differentiation would require a more complex architecture and a larger categorical dataset. Given that runway pixels represent less than 1% of the total imagery, the results are promising, establishing the model as a functional tool for environmental and territorial monitoring.
+
+
 ## Abordagem
 
 Este projeto foi produzido partindo do princípio de que pistas de pouso são difíceis de serem detectadas em meio a toda a vegetação amazônica, portando, foram feitas buscas acadêmicas e pesquisas na internet a respeito do assunto, buscando melhor compreensão do tema para nortear decisões e estruturar metodologias.
@@ -129,15 +131,15 @@ Com o dataset e o modelo definidos, o treinamento foi iniciado e mesmo com pouco
 
 ### Preparação dos dados
 
-Para preparar o dataset de treino, utilizou-se da plataforma Code Editor do Google Earth Engine para marcar manualmente polígonos de pistas (positivos) e de não pistas (negativos). Com o auxílio de um mapa interativo¹, foram definidos 51 polígonos positivos e 102 polígonos negativos (proporção 1:2, totalizando 153 polígonos) em toda a região amazônica do Brasil, variando desde aeroportos internacionais (como os de Belém e de Manaus), aeroportos simples (como o de Parintins) à pistas clandestinas e improvisadas em regiões remotas. Para os negativos, foram escolhidas rodovias, portos, clareiras, estradas de terra, elementos os quais poderiam confundir o modelo como pistas por sua geometria similar. Tais polígonos foram salvos como ```ee.FeatureCollection``` com metadados de ```CONFIDENCE```, ```DATE```, ```ID``` e ```SURFACE```  com as seguintes informações:
+Para preparar o dataset de treino, utilizou-se da plataforma Code Editor do Google Earth Engine para marcar manualmente polígonos de pistas (positivos) e de não pistas (negativos). Com o auxílio de um mapa interativo, foram definidos 51 polígonos positivos e 102 polígonos negativos (totalizando 153 polígonos) em toda a região amazônica do Brasil, variando desde aeroportos internacionais (como os de Belém e de Manaus), aeroportos simples (como o de Parintins) à pistas clandestinas e improvisadas em regiões remotas. Para os negativos, foram escolhidas rodovias, portos, clareiras, estradas de terra, elementos os quais poderiam confundir o modelo como pistas por sua geometria similar. Tais polígonos foram salvos como ```ee.FeatureCollection``` com metadados de ```CONFIDENCE```, ```DATE```, ```ID``` e ```SURFACE```  com as seguintes informações:
 
-- ```CONFIDENCE```: Nível de cconfiança dos dados.
+- ```CONFIDENCE```: Nível de confiança dos dados.
 - ```DATE```: Intervalo da data os quais os dados foram obtidos.
 - ```ID```: Identificador único da pista.
 - ```SURFACE```: Tipo de superfície, 1 para pistas de asfalto e 0 para pistas de terra e ademais.
 
 \
-Após a marcação dos polígonos, foi carregado o dataset **Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR)** ² com a máscara de filtro de nuvens disponibilizado pela plataforma **Earth Engine Data Catalog** ². Criou-se um composite com as bandas RGB (B4, B3, B2), NIR (B8), SWIR (B11, B12) nas quais foi aplicado um algorítimo de reprojeção bilinear para 10m, uma vez que as resolução espacial destas bandas é 20m, e por fim, calculou-se os valores de NDVI e NDBI para adcionar ao composite.
+Após a marcação dos polígonos, foi carregado o dataset **Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR)** com a máscara de filtro de nuvens disponibilizado pela plataforma **Earth Engine Data Catalog**. Criou-se um composite com as bandas RGB (B4, B3, B2), NIR (B8), SWIR (B11, B12) nas quais foi aplicado um algorítimo de reprojeção bilinear para 10m, uma vez que as resolução espacial destas bandas é 20m, e por fim, calculou-se os valores de NDVI e NDBI para adcionar ao composite.
 
 \
 Para cada polígono, foi criado um patch normalizado de 256px centrado no próprio polígono com uma máscara binária (nomeada ```'runway_mask'```) de valor ```1``` apenas nos pixeis de pista e ```0``` nos restantes, obviamente patches negativos possuem apenas valor ```0``` em toda a máscara, a qual foi então empilhada nas bandas do patch.
@@ -212,18 +214,21 @@ Recomenda-se para trabalhos futuros expandi o dataset, no momento o esmo possui 
 \
 Outro trabalho interessante seria a implementação de um mapa interativo do Earth Engine para visualização das pistas na região de interesse.
 
+\
+Apesar de ter sido definido o metadado ```SURFACE```, o mesmo não foi utlizado. A ideia inicial era fazer com que o modelo diferenciasse pistas de asfalto, terra, cascalho e outros, poŕem esta ideia acabou sendo abandonada durante o desenvolvimento pois seria neccessário uma arquitetura mais complexa para tal. Trabalhos futuros podem aplicar esta ideia, este metadado já está aplicado nos patches do dataset e no algoritimo do GEE disponível no fim do notebook.
+
 ## Referencias
 
 - Xie, E., Wang, W., Yu, Z., Anandkumar, A., Alvarez, J. M., & Luo, P. (2021). SegFormer: Simple and efficient design for semantic segmentation with transformers. arXiv preprint arXiv:2105.15203. https://arxiv.org/abs/2105.15203
 
-2. Google Earth Engine Data Catalog. (n.d.). Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR). European Union/ESA/Copernicus.
+- Google Earth Engine Data Catalog. (n.d.). Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR). European Union/ESA/Copernicus.
 https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
 
 - Iakubovskii, P. (2019). Segmentation Models PyTorch. GitHub repository. https://github.com/qubvel/segmentation_models.pytorch
 
 - Sahilcarterr. (2023, dezembro 26). Why nn.BCEWithLogitsLoss Numerically Stable. Medium. https://medium.com/@sahilcarterr/why-nn-bcewithlogitsloss-numerically-stable-6a04f3052967
 
-1. Pistas de Pouso. (s.d.). Earth Engine App. Google Earth Engine. Recuperado em 27 de dezembro de 2025, de https://solvedgeo.users.earthengine.app/view/pistas-de-pouso.
+- Pistas de Pouso. (s.d.). Earth Engine App. Google Earth Engine. Recuperado em 27 de dezembro de 2025, de https://solvedgeo.users.earthengine.app/view/pistas-de-pouso.
 
 - “Projeto MapBiomas - Mapa de Pistas de Pouso da Amazonia 2021 (v1)”
 acessado em 29 de dezembro de 2025 através do link: https://brasil.mapbiomas.org/wp-content/uploads/sites/4/2023/08/MapBiomas_Pistas_de_Pouso_06.02.2023_1.pdf”
