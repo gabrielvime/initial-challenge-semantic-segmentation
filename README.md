@@ -105,6 +105,10 @@ Para alterar, clique em ```Runtime > Change runtime type``` e selecione ```T4 GP
 
 ## Abstract
 
+The detection of landing strips in the Amazon region is a critical challenge for territorial monitoring due to dense vegetation, persistent cloud cover, and the small spatial footprint of these structures. Traditional RGB monitoring often fails to distinguish runways from similar features like roads or riverbanks. This study proposes a methodology for the automated segmentation of landing strips by integrating multiespectral data from the Sentinel-2 satellite with a state-of-the-art U-Net MiT-B2 (SegFormer) architecture. A custom dataset was developed using the Google Earth Engine (GEE), consisting of 153 manually annotated patches (51 positive and 102 negative samples) across the Brazilian Amazon. The input pipeline incorporates 8 spectral bands: RGB for visual context, Near-Infrared (NIR) to exploit vegetation contrast, and Short-Wave Infrared (SWIR 1 & 2) to leverage differences in moisture and soil/asphalt reflectance. Additionally, NDVI and NDBI indices were calculated to enhance the separation between biomass and compacted soil. The model was trained using a hybrid loss approach centered on Binary Cross-Entropy (BCE) with a Sigmoid activation and validated using the Dice Loss coefficient.
+
+\
+Despite the limited dataset size, the MiT-B2 encoder demonstrated high sensitivity in remote forest areas, effectively distinguishing runways from complex negatives like roads and clearings. Challenges were identified in peri-urban areas where spectral signatures overlap with urban infrastructure. Data export issues regarding SWIR band upsampling were resolved by optimizing GEE reprojection workflows, ensuring data integrity for inference. The results confirm that the integration of SWIR bands and Transformer-based self-attention mechanisms significantly improves the detection of small-scale infrastructure in rainforest environments. Future work should focus on dataset expansion to 1,500 patches to fully leverage the Vision Transformer’s potential and the implementation of real-time interactive monitoring tools.
 ## Abordagem
 
 Este projeto foi produzido partindo do princípio de que pistas de pouso são difíceis de serem detectadas em meio a toda a vegetação amazônica, portando, foram feitas buscas acadêmicas e pesquisas na internet a respeito do assunto, buscando melhor compreensão do tema para nortear decisões e estruturar metodologias.
@@ -133,7 +137,7 @@ Para preparar o dataset de treino, utilizou-se da plataforma Code Editor do Goog
 - ```SURFACE```: Tipo de superfície, 1 para pistas de asfalto e 0 para pistas de terra e ademais.
 
 \
-Após a marcação dos polígonos, foi carregado o dataset **Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR)** ² com a máscara de filtro de nuvens disponibilizado pela plataforma **Earth Engine Data Catalog** ². Criou-se um composite com as bandas RGB (B4, B3, B2), NIR (B8), SWIR (B11, B12) nas quais foi aplicado um algorítimo de reprojeção bilinear para 10m, uma vez que as imagens destas bandas está em 20m, e por fim, calculou-se os valores de NDVI e NDBI para adcionar ao composite.
+Após a marcação dos polígonos, foi carregado o dataset **Harmonized Sentinel-2 MSI: MultiSpectral Instrument, Level-2A (SR)** ² com a máscara de filtro de nuvens disponibilizado pela plataforma **Earth Engine Data Catalog** ². Criou-se um composite com as bandas RGB (B4, B3, B2), NIR (B8), SWIR (B11, B12) nas quais foi aplicado um algorítimo de reprojeção bilinear para 10m, uma vez que as resolução espacial destas bandas é 20m, e por fim, calculou-se os valores de NDVI e NDBI para adcionar ao composite.
 
 \
 Para cada polígono, foi criado um patch normalizado de 256px centrado no próprio polígono com uma máscara binária (nomeada ```'runway_mask'```) de valor ```1``` apenas nos pixeis de pista e ```0``` nos restantes, obviamente patches negativos possuem apenas valor ```0``` em toda a máscara, a qual foi então empilhada nas bandas do patch.
@@ -169,11 +173,44 @@ Por fim, função Dice Loss foi usada para validação por se tratar de uma fun�
 
 ## Resultados
 
+O modelo conseguiu identificar pistas de pouso em boa parte dos patches de teste.
+
+![Patch de teste](results/test1.png)
+
+\
+Porém, ainda teve dificuldades de detectar em alguns cenários, em especial perto de áreas urbanas, algumas vezes até falhando completamente.
+
+![Patch de teste](results/test8.png)
+
+\
+Em relação aos negativos, o modelo se saiu surpreendentemente bem, com raros casos de detecção de falsos positivos.
+
+![Patch de teste](results/test6.png)
+
+\
+Na aplicação no sudoeste do Pará, o modelo teve aproveitamento razoavelmente bom, porém, ainda é necessário testes mais intensivos.
+![Patch de teste](results/test7.png)
+
 ## Desafios
+
+O primeiro desafio foi uma limitação técnica, o autor não dispõe de poder computacional para treinar modelos de CNN. A solução foi utilizar uma plataforma de computação em nuvem, neste caso o Google Colab.
+
+\
+O maior desafio enfrentado foi a exportação dos dados do Sentinel-2 para formação do dataset. Como as bandas SWIR possuem resolução espacial de 20m, é necessário aplicar uma reprojeção para 10m, porém, isto acabava corrompendo os dados e o modelo não aprendia nada. Com a ajuda da ferramenta QGIS, foi possível visualizar que o que era exportado eram apenas imagens com tons aleatórios em degradê ou simplesmente imagens toda preta ou branca. Após muita pesquisa e testes, chegou-se a uma conclusão simples e até trivial: fazer a reprojeção apenas durante a obtenção dos dados e unicamente nas bandas SWIR, sem aplicar nas outras bands, e também, não usar o argumento de escala durante a exxportação pois o GEE já cuida automaticamente disto.
+
+\
+Este mesmo problema voltou a se repetir ao aplicar o modelo treiando na região sudoeste do Pará, pois ao fazer o download dos patches do Sentinel-2, a reprojeção, mesmo que apenas nas bandas SWIR, acabava corrompendo todos os dados. Isto foi resolvido simplesmente não aplicando reprojeção em nenhuma banda e deixando para o GEE tratar da escala.
 
 ## Conclusões
 
+A partir dos dados obtidos, conclui-se que o modelo possui um bom desempenho em regiões onde a pista não está ao lado de uma área urbana, o que é a maioria dos casos na aplicação no sudoeste do Pará, porém, em casos contrários, o modelo enfrenta muita difilcudade. O modelo não enfrentou problemas com falsos positivos, em raros casos confundiu uma estrutura com uma pista, e em tais casos a confiança era baixa demais para considerar. Levando em consideração a pequena quantidade de dados do dataset e o fato de que geralmente a área de pista cobre menos de 1% da imagem, os resultados chegam a ser surpreendentes, o modelo está funcional porém ainda pode ser melhorado. 
+
 ## Trabalhos futuros
+
+Recomenda-se para trabalhos futuros expandi o dataset, no momento o esmo possui apenas 153 patches o que é consideravelmente pouco para modelos de visão computacional, especialmente com arquitetura ViT que necessita de muitos dados. Uma quantidade razoável seria 200 positivos e 400 negativos, enquanto uma quantidade ideal seria 500 positivos e 1000 negativos.
+
+\
+Outro trabalho interessante seria a implementação de um mapa interativo do Earth Engine para visualização das pistas na região de interesse.
 
 ## Referencias
 
